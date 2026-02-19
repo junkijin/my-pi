@@ -1,0 +1,18 @@
+{
+  "lastChangelogVersion": "0.53.0",
+  "defaultProvider": "opencode",
+  "defaultModel": "glm-5-free",
+  "quietStartup": true,
+  "defaultThinkingLevel": "high",
+  "enabledModels": [
+    "opencode/glm-5-free",
+    "openrouter/qwen/qwen3.5-397b-a17b"
+  ],
+  "hideThinkingBlock": false,
+  "terminal": {
+    "showImages": false
+  },
+  "transport": "auto",
+  "theme": "gruvbox-dark",
+  "showHardwareCursor": false
+}

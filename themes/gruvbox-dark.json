@@ -1,0 +1,93 @@
+{
+  "$schema": "https://raw.githubusercontent.com/badlogic/pi-mono/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
+  "name": "gruvbox-dark",
+  "vars": {
+    "deepBlack": "#1d2021",
+    "normalBlack": "#282828",
+    "dimBlack": "#32302f",
+    "brightBlack": "#928374",
+
+    "deepRed": "#3c1f1f",
+    "normalRed": "#cc241d",
+    "brightRed": "#fb4934",
+
+    "deepGreen": "#32361a",
+    "normalGreen": "#98971a",
+    "brightGreen": "#b8bb26",
+
+    "normalYellow": "#d79921",
+    "brightYellow": "#fabd2f",
+
+    "normalBlue": "#458588",
+    "brightBlue": "#83a598",
+
+    "normalMagenta": "#b16286",
+    "brightMagenta": "#d3869b",
+
+    "normalCyan": "#689d6a",
+    "brightCyan": "#8ec07c",
+
+    "deepWhite": "#3c3836",
+    "normalWhite": "#a89984",
+    "brightWhite": "#ebdbb2"
+  },
+  "colors": {
+    "accent": "brightBlue",
+    "border": "normalBlue",
+    "borderAccent": "brightCyan",
+    "borderMuted": "brightBlack",
+    "success": "normalGreen",
+    "error": "normalRed",
+    "warning": "normalYellow",
+    "muted": "normalWhite",
+    "dim": "brightBlack",
+    "text": "brightWhite",
+    "thinkingText": "brightBlack",
+
+    "selectedBg": "deepWhite",
+    "userMessageBg": "dimBlack",
+    "userMessageText": "brightWhite",
+    "customMessageBg": "deepWhite",
+    "customMessageText": "brightWhite",
+    "customMessageLabel": "brightMagenta",
+    "toolPendingBg": "deepGreen",
+    "toolSuccessBg": "deepGreen",
+    "toolErrorBg": "deepRed",
+    "toolTitle": "brightWhite",
+    "toolOutput": "normalWhite",
+
+    "mdHeading": "brightYellow",
+    "mdLink": "brightBlue",
+    "mdLinkUrl": "brightBlack",
+    "mdCode": "brightCyan",
+    "mdCodeBlock": "normalGreen",
+    "mdCodeBlockBorder": "brightBlack",
+    "mdQuote": "normalWhite",
+    "mdQuoteBorder": "brightBlack",
+    "mdHr": "brightBlack",
+    "mdListBullet": "brightCyan",
+
+    "toolDiffAdded": "normalGreen",
+    "toolDiffRemoved": "normalRed",
+    "toolDiffContext": "normalWhite",
+
+    "syntaxComment": "brightBlack",
+    "syntaxKeyword": "brightRed",
+    "syntaxFunction": "brightYellow",
+    "syntaxVariable": "brightBlue",
+    "syntaxString": "brightGreen",
+    "syntaxNumber": "brightMagenta",
+    "syntaxType": "brightCyan",
+    "syntaxOperator": "brightWhite",
+    "syntaxPunctuation": "brightWhite",
+
+    "thinkingOff": "brightBlack",
+    "thinkingMinimal": "brightBlack",
+    "thinkingLow": "brightBlack",
+    "thinkingMedium": "brightBlack",
+    "thinkingHigh": "brightBlack",
+    "thinkingXhigh": "brightBlack",
+
+    "bashMode": "normalGreen"
+  }
+}

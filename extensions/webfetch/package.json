@@ -1,0 +1,11 @@
+{
+  "name": "pi-webfetch-extension",
+  "private": true,
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "turndown": "^7.2.0"
+  },
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  }
+}

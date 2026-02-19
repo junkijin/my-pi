@@ -2,3 +2,4 @@ auth.json
 node_modules/
 sessions/
 .pi/
+settings.json

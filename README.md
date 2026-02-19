@@ -7,24 +7,11 @@ Pi Coding Agent의 개인 설정 및 확장 저장소입니다.
 ```
 .pi/agent/
 ├── AGENTS.md           # 에이전트 동작 지침
-├── settings.json       # 주요 설정 (모델, 프로바이더, 테마 등)
 ├── extensions/         # 커스텀 확장 기능
 ├── skills/             # 전문화된 작업 스킬
 ├── prompts/            # 프롬프트 템플릿
 └── themes/             # UI 테마
 ```
-
-## Settings
-
-`settings.json`에서 주요 설정을 관리합니다:
-
-| Setting | Value | Description |
-|---------|-------|-------------|
-| `defaultProvider` | `opencode` | 기본 AI 프로바이더 |
-| `defaultModel` | `glm-5-free` | 기본 모델 |
-| `defaultThinkingLevel` | `high` | 기본 사고 레벨 |
-| `theme` | `gruvbox-dark` | UI 테마 |
-| `quietStartup` | `true` | 조용한 시작 모드 |
 
 ## Extensions
 

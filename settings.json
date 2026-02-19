@@ -8,7 +8,7 @@
     "opencode/glm-5-free",
     "openrouter/qwen/qwen3.5-397b-a17b"
   ],
-  "hideThinkingBlock": false,
+  "hideThinkingBlock": true,
   "terminal": {
     "showImages": false
   },

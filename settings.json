@@ -14,5 +14,5 @@
   },
   "transport": "auto",
   "theme": "gruvbox-dark",
-  "showHardwareCursor": false
+  "showHardwareCursor": true
 }

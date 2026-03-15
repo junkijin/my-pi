@@ -14,7 +14,7 @@ import {
 	writeTempOutput,
 } from "./shared/utils";
 
-const TOOL_NAME = "websearch";
+const TOOL_NAME = "search_web";
 const DEFAULT_MAX_RESULTS = 10;
 const MIN_MAX_RESULTS = 5;
 const MAX_MAX_RESULTS = 20;
@@ -66,7 +66,7 @@ export default function (pi: ExtensionAPI) {
 		label: TOOL_NAME,
 		description: getDescription(),
 		parameters: Type.Object({
-			query: Type.String({ description: "Websearch query" }),
+			query: Type.String({ description: "Search query" }),
 			maxResults: Type.Optional(
 				Type.Number({
 					minimum: MIN_MAX_RESULTS,
@@ -123,7 +123,7 @@ export default function (pi: ExtensionAPI) {
 					const tavilyError = error instanceof Error ? error : new Error(String(error));
 					const exaMessage = exaError?.message ?? "Unknown Exa error";
 					throw new Error(
-						`Websearch failed with both providers. Exa: ${exaMessage}. Tavily: ${tavilyError.message}`,
+						`Search failed with both providers. Exa: ${exaMessage}. Tavily: ${tavilyError.message}`,
 					);
 				}
 			}

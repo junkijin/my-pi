@@ -23,7 +23,7 @@ const MAX_TIMEOUT_MS = 120_000;
 
 const IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 
-type WebfetchDetails = {
+type FetchUrlDetails = {
   truncation?: {
     truncated: boolean;
     truncatedBy: "lines" | "bytes";
@@ -43,7 +43,7 @@ type AbortResources = {
 
 function getTempFilePath(): string {
   const id = randomBytes(8).toString("hex");
-  return join(tmpdir(), `pi-webfetch-${id}.txt`);
+  return join(tmpdir(), `pi-fetch-url-${id}.txt`);
 }
 
 function buildAcceptHeader(format: "text" | "markdown" | "html"): string {
@@ -113,7 +113,7 @@ function formatBinaryResult(url: string, mime: string, arrayBuffer: ArrayBuffer)
     { type: "text", text: `Fetched image [${mime}] from ${url}` },
     { type: "image", data: base64, mimeType: mime },
   ];
-  return { content, details: {} as WebfetchDetails };
+  return { content, details: {} as FetchUrlDetails };
 }
 
 function normalizeOutput(raw: string, format: "text" | "markdown" | "html", contentType: string): string {
@@ -131,7 +131,7 @@ function normalizeOutput(raw: string, format: "text" | "markdown" | "html", cont
 function applyTruncation(output: string, format: "text" | "markdown" | "html") {
   const truncation = truncateHead(output);
   let finalText = truncation.content || "";
-  let details: WebfetchDetails | undefined;
+  let details: FetchUrlDetails | undefined;
 
   if (truncation.truncated) {
     const tempFile = getTempFilePath();
@@ -151,8 +151,8 @@ function applyTruncation(output: string, format: "text" | "markdown" | "html") {
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool({
-    name: "webfetch",
-    label: "webfetch",
+    name: "fetch_url",
+    label: "fetch_url",
     description:
       `Fetch content from a URL. Supports text, markdown, and HTML. ` +
       `Images (png/jpg/gif/webp) are returned as attachments. ` +
@@ -167,7 +167,7 @@ export default function (pi: ExtensionAPI) {
     }),
     renderCall(args, theme) {
       const url = typeof args?.url === "string" ? theme.fg('accent', ` "${args.url}"`) : "";
-			const text = theme.fg("toolTitle", `${theme.bold('webfetch')}${url}`);
+			const text = theme.fg("toolTitle", `${theme.bold('fetch_url')}${url}`);
       return new Text(text, 0, 0);
     },
     renderResult(result, { expanded, isPartial }, theme) {

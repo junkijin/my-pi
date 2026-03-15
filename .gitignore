@@ -1,5 +1,5 @@
-auth.json
 node_modules/
 sessions/
 .pi/
+auth.json
 settings.json

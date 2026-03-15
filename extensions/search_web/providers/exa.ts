@@ -1,99 +1,47 @@
-import type {
-	ProviderSearch,
-	ProviderSearchResult,
-	UnifiedParams,
-} from "../shared/types";
+import type { ProviderSearch, ProviderSearchResult } from "../shared/types";
+import { callMcpTool } from "../shared/mcp";
+import { cleanTextBlock } from "../shared/utils";
+import { parseExaResults } from "./exa-parser";
 
-const EXA_ENDPOINT = "https://mcp.exa.ai/mcp";
-const EXA_MCP_TOOL_NAME = "web_search_exa";
-
-interface McpSearchRequest {
-	jsonrpc: "2.0";
-	id: number;
-	method: "tools/call";
-	params: {
-		name: string;
-		arguments: {
-			query: string;
-			numResults: number;
-		};
-	};
-}
-
-interface McpSearchResponse {
-	result?: {
-		content?: Array<{
-			text?: string;
-		}>;
-	};
-}
-
-function buildSearchRequest(params: UnifiedParams): McpSearchRequest {
-	return {
-		jsonrpc: "2.0",
-		id: 1,
-		method: "tools/call",
-		params: {
-			name: EXA_MCP_TOOL_NAME,
-			arguments: {
-				query: params.query,
-				numResults: params.maxResults,
-			},
-		},
-	};
-}
-
-function parseExaContent(responseText: string) {
-	for (const line of responseText.split("\n")) {
-		if (!line.startsWith("data: ")) {
-			continue;
-		}
-
-		const payload = line.slice(6).trim();
-		if (!payload || payload === "[DONE]") {
-			continue;
-		}
-
-		let data: McpSearchResponse;
-		try {
-			data = JSON.parse(payload);
-		} catch {
-			continue;
-		}
-
-		const text = data.result?.content?.[0]?.text;
-		if (text && text.trim().length > 0) {
-			return text;
-		}
-	}
-
-	return "";
-}
+const EXA_ENDPOINT = process.env.EXA_MCP_URL?.trim() || "https://mcp.exa.ai/mcp";
+const EXA_TOOL_NAME = process.env.EXA_MCP_TOOL?.trim() || "web_search_exa";
 
 export const searchExa: ProviderSearch = async (
 	params,
 	signal,
 ): Promise<ProviderSearchResult> => {
-	const response = await fetch(EXA_ENDPOINT, {
-		method: "POST",
-		headers: {
-			accept: "application/json, text/event-stream",
-			"content-type": "application/json",
+	const response = await callMcpTool({
+		endpoint: EXA_ENDPOINT,
+		toolName: EXA_TOOL_NAME,
+		arguments_: {
+			query: params.query,
+			numResults: params.maxResults,
 		},
-		body: JSON.stringify(buildSearchRequest(params)),
+		headers: buildHeaders(),
 		signal,
 	});
 
-	if (!response.ok) {
-		const errorText = await response.text();
-		throw new Error(`Exa search error (${response.status}): ${errorText}`);
-	}
+	const rawText = cleanTextBlock(response.textParts.join("\n\n"));
+	const items = parseExaResults(rawText);
 
-	const responseText = await response.text();
-	const content = parseExaContent(responseText);
-	if (!content) {
+	if (items.length === 0 && !rawText) {
 		throw new Error("Exa search returned empty content");
 	}
 
-	return { content };
+	return {
+		provider: "exa",
+		items,
+		rawText,
+	};
 };
+
+function buildHeaders() {
+	const apiKey = process.env.EXA_API_KEY?.trim();
+	if (!apiKey) {
+		return undefined;
+	}
+
+	return {
+		EXA_API_KEY: apiKey,
+	};
+}

@@ -41,7 +41,7 @@ export default function (pi: ExtensionAPI) {
 		}),
 		renderCall(args, theme) {
 			const query =
-				typeof args?.query === "string" ? theme.fg("accent", ` \"${args.query}\"`) : "";
+				typeof args?.query === "string" ? theme.fg("accent", ` ${args.query}`) : "";
 			const text = theme.fg("toolTitle", `${theme.bold(TOOL_NAME)}${query}`);
 			return new Text(text, 0, 0);
 		},

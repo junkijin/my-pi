@@ -1,12 +1,12 @@
 import { formatSize, keyHint } from "@mariozechner/pi-coding-agent";
 import type { TextContent } from "@mariozechner/pi-ai";
 import { Text } from "@mariozechner/pi-tui";
-import { TOOL_NAME } from "./constants";
-import { summarizeForPreview } from "./content";
-import type { FetchUrlDetails } from "./types";
+import { summarizeForPreview } from "../shared/output";
+import type { FetchUrlDetails } from "../shared/types";
+import { TOOL_NAME } from "../shared/config";
 
 export function renderCall(args: Record<string, unknown> | undefined, theme: any) {
-  const url = typeof args?.url === "string" ? theme.fg("accent", ` \"${args.url}\"`) : "";
+  const url = typeof args?.url === "string" ? theme.fg("accent", ` ${args.url}`) : "";
   return new Text(theme.fg("toolTitle", `${theme.bold(TOOL_NAME)}${url}`), 0, 0);
 }
 

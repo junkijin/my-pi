@@ -1,6 +1,10 @@
 import { load as loadHtml } from "cheerio";
 import TurndownService from "turndown";
-import { BLOCK_SELECTOR, HTML_ROOT_SELECTOR, SANITIZE_SELECTOR } from "./constants";
+
+const HTML_ROOT_SELECTOR = "main, article, [role='main'], body";
+const SANITIZE_SELECTOR = "script, style, noscript, template, iframe, object, embed";
+const BLOCK_SELECTOR =
+  "address, article, aside, blockquote, br, div, dl, dt, dd, fieldset, figcaption, figure, footer, form, h1, h2, h3, h4, h5, h6, header, hr, li, main, nav, ol, p, pre, section, table, thead, tbody, tfoot, tr, ul";
 
 export function toAbsoluteUrl(value: string, baseUrl: string): string {
   const trimmed = value.trim();

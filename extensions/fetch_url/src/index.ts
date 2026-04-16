@@ -1,23 +1,25 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { StringEnum } from "@mariozechner/pi-ai";
 import { Type } from "@sinclair/typebox";
-import { MAX_TIMEOUT_SECONDS, TOOL_NAME, getToolDescription } from "./constants";
-import { executeFetch } from "./fetch";
-import { normalizeTimeoutSeconds, validateUrl } from "./network";
-import { renderCall, renderResult } from "./render";
-import type { OutputFormat, ToolProgressUpdate } from "./types";
+import { executeFetch } from "./fetch/execute";
+import { normalizeTimeoutSeconds, validateUrl } from "./fetch/network";
+import {
+  MAX_TIMEOUT_SECONDS,
+  TOOL_NAME,
+  TOOL_PROMPT_SNIPPET,
+  getPromptGuidelines,
+  getToolDescription,
+} from "./shared/config";
+import type { OutputFormat, ToolProgressUpdate } from "./shared/types";
+import { renderCall, renderResult } from "./ui/render";
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: TOOL_NAME,
     label: TOOL_NAME,
     description: getToolDescription(),
-    promptSnippet:
-      "Fetch a remote URL and return clean markdown, plain text, raw HTML, or a supported image attachment.",
-    promptGuidelines: [
-      "Use format: markdown for normal web pages unless the user explicitly wants raw HTML or plain text.",
-      "Use format: html only when the user explicitly asks for original markup.",
-    ],
+    promptSnippet: TOOL_PROMPT_SNIPPET,
+    promptGuidelines: getPromptGuidelines(),
     parameters: Type.Object({
       url: Type.String({ description: "URL to fetch (http/https)" }),
       format: StringEnum(["text", "markdown", "html"] as const, {

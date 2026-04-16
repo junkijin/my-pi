@@ -1,6 +1,12 @@
 import type { TextContent } from "@mariozechner/pi-ai";
+import { applyTruncation } from "../shared/output";
+import type {
+  FetchExecution,
+  FetchUrlDetails,
+  OutputFormat,
+  ToolProgressUpdate,
+} from "../shared/types";
 import {
-  applyTruncation,
   buildImageResult,
   ensureWithinMaxResponseSize,
   isSupportedImageMimeType,
@@ -9,8 +15,13 @@ import {
   renderTextualContent,
   sniffImageMimeType,
 } from "./content";
-import { buildAcceptHeader, createAbortResources, getMimeType, isAbortError, readResponseBody } from "./network";
-import type { FetchExecution, FetchUrlDetails, OutputFormat, ToolProgressUpdate } from "./types";
+import {
+  buildAcceptHeader,
+  createAbortResources,
+  getMimeType,
+  isAbortError,
+  readResponseBody,
+} from "./network";
 
 export async function executeFetch(
   url: URL,

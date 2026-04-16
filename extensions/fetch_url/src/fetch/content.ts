@@ -1,20 +1,28 @@
-import {
-  DEFAULT_MAX_BYTES,
-  DEFAULT_MAX_LINES,
-  formatSize,
-  truncateHead,
-} from "@mariozechner/pi-coding-agent";
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import {
-  MAX_RESPONSE_SIZE,
-  PREVIEW_LINES,
-  SUPPORTED_IMAGE_MIME_TYPES,
-  TEXTUAL_MIME_TYPES,
-} from "./constants";
+import { formatSize } from "@mariozechner/pi-coding-agent";
+import { MAX_RESPONSE_SIZE } from "../shared/config";
+import type { FetchExecution, FetchUrlDetails, OutputFormat } from "../shared/types";
 import { htmlToMarkdown, htmlToText, normalizeWhitespace } from "./html";
-import type { FetchExecution, FetchUrlDetails, OutputFormat } from "./types";
+
+const SUPPORTED_IMAGE_MIME_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+]);
+
+const TEXTUAL_MIME_TYPES = new Set([
+  "application/json",
+  "application/ld+json",
+  "application/manifest+json",
+  "application/xml",
+  "application/xhtml+xml",
+  "application/rss+xml",
+  "application/atom+xml",
+  "application/javascript",
+  "application/x-javascript",
+  "application/ecmascript",
+  "image/svg+xml",
+]);
 
 export function getCharsetFromContentType(contentType: string | null): string | undefined {
   const match = contentType?.match(/charset\s*=\s*['\"]?([^;'\"\s]+)/i);
@@ -111,47 +119,6 @@ export function sniffImageMimeType(buffer: Buffer): string | undefined {
   }
 
   return undefined;
-}
-
-export async function writeFullOutput(output: string, format: OutputFormat): Promise<string> {
-  const tempDir = await mkdtemp(join(tmpdir(), "pi-fetch-url-"));
-  const extension = format === "html" ? "html" : format === "markdown" ? "md" : "txt";
-  const tempFile = join(tempDir, `output.${extension}`);
-  await writeFile(tempFile, output, "utf-8");
-  return tempFile;
-}
-
-export async function applyTruncation(output: string, format: OutputFormat) {
-  const truncation = truncateHead(output, {
-    maxLines: DEFAULT_MAX_LINES,
-    maxBytes: DEFAULT_MAX_BYTES,
-  });
-
-  if (!truncation.truncated) {
-    return {
-      text: truncation.content,
-      truncation: undefined,
-      fullOutputPath: undefined as string | undefined,
-    };
-  }
-
-  const fullOutputPath = await writeFullOutput(output, format);
-  let text = truncation.content;
-  text += `\n\n[Output truncated: showing ${truncation.outputLines} of ${truncation.totalLines} lines`;
-  text += ` (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).`;
-  text += ` Full output saved to: ${fullOutputPath}]`;
-
-  return {
-    text,
-    truncation,
-    fullOutputPath,
-  };
-}
-
-export function summarizeForPreview(resultText: string): string {
-  const trimmed = resultText.trim();
-  if (!trimmed) return "(empty response)";
-  return trimmed.split("\n").slice(0, PREVIEW_LINES).join("\n");
 }
 
 export function buildImageResult(

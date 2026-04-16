@@ -3,8 +3,8 @@ import {
   DEFAULT_TIMEOUT_SECONDS,
   MAX_RESPONSE_SIZE,
   MAX_TIMEOUT_SECONDS,
-} from "./constants";
-import type { AbortResources, OutputFormat } from "./types";
+} from "../shared/config";
+import type { AbortResources, OutputFormat } from "../shared/types";
 
 export function validateUrl(rawUrl: string): URL {
   let url: URL;

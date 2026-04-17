@@ -65,12 +65,12 @@
     "syntaxType": "yellow",
     "syntaxOperator": "cyan",
     "syntaxPunctuation": "text",
-    "thinkingOff": "dim",
-    "thinkingMinimal": "border",
-    "thinkingLow": "accent",
-    "thinkingMedium": "cyan",
-    "thinkingHigh": "purple",
-    "thinkingXhigh": "red",
+    "thinkingOff": "muted",
+    "thinkingMinimal": "muted",
+    "thinkingLow": "muted",
+    "thinkingMedium": "muted",
+    "thinkingHigh": "muted",
+    "thinkingXhigh": "muted",
     "bashMode": "green"
   },
   "export": {

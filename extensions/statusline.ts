@@ -1,5 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import { basename } from "node:path";
+import { execSync } from "node:child_process";
 
 function getLeftContext(usage) {
 	const remaining = Math.max(0, 100 - (usage?.percent || 0));
@@ -36,6 +38,14 @@ function getModelInfo(ctx) {
 	return `${model.provider}/${model.id}`;
 }
 
+function getGitBranch(cwd: string): string | undefined {
+	try {
+		return execSync("git rev-parse --abbrev-ref HEAD", { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+	} catch {
+		return undefined;
+	}
+}
+
 export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		ctx.ui.setFooter((tui, theme, footerData) => {
@@ -50,21 +60,31 @@ export default function (pi: ExtensionAPI) {
 					const thinkingLevel = pi.getThinkingLevel();
 					const modelName = getModelInfo(ctx);
 
+					const isSub = ctx.model ? ctx.modelRegistry.isUsingOAuth(ctx.model) : false;
 					const cost = getSessionCost(ctx);
-					const innerWidth = width - 2;
-					const tokensLabel = theme.fg("dim", `${formatTokensK(usage?.tokens)} (${formatCost(cost)})`);
+					const innerWidth = width;
+
+					const dirName = basename(ctx.cwd);
+					const branch = getGitBranch(ctx.cwd);
+					const dirLabel = theme.fg("dim", branch ? `${dirName} (${branch})` : dirName);
+
+					const tokensText = isSub
+						? formatTokensK(usage?.tokens)
+						: `${formatTokensK(usage?.tokens)} (${formatCost(cost)})`;
+					const tokensLabel = theme.fg("dim", tokensText);
+					const leftPart = dirLabel + theme.fg("dim", " · ") + tokensLabel;
 					const status = theme.fg("dim", `${modelName} (${thinkingLevel})`);
-					const gap = " ".repeat(Math.max(1, innerWidth - visibleWidth(tokensLabel) - visibleWidth(status)));
+					const gap = " ".repeat(Math.max(1, innerWidth - visibleWidth(leftPart) - visibleWidth(status)));
 
 					if (leftContextPercent < 30) {
 						const leftContext = theme.fg("accent", `${leftContextPercent}% context left`);
 						const leftContextPad = " ".repeat(Math.max(1, innerWidth - visibleWidth(leftContext)));
 						return [
-							truncateToWidth(" " + tokensLabel + gap + status + " ", width),
-							truncateToWidth(" " + leftContextPad + leftContext + " ", width),
+							truncateToWidth(leftPart + gap + status, width),
+							truncateToWidth(leftContextPad + leftContext, width),
 						];
 					}
-					return [truncateToWidth(" " + tokensLabel + gap + status + " ", width)];
+					return [truncateToWidth(leftPart + gap + status, width)];
 				},
 			};
 		});

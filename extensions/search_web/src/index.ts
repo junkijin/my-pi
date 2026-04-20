@@ -54,7 +54,7 @@ export default function (pi: ExtensionAPI) {
 			const preview = summarizeForPreview(fullText);
 
 			if (!expanded) {
-				const hint = keyHint("expandTools", "to expand");
+				const hint = keyHint("app.tools.expand", "to expand");
 				return new Text(`\n${preview}\n(${hint})`, 0, 0);
 			}
 

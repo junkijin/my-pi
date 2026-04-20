@@ -36,7 +36,7 @@ export function renderResult(
   const preview = summarizeForPreview(fullText);
 
   if (!options.expanded) {
-    const hint = keyHint("expandTools", "to expand");
+    const hint = keyHint("app.tools.expand", "to expand");
     const suffix = details?.truncation?.truncated ? `\n${theme.fg("warning", "(truncated)")}` : "";
     return new Text(`\n${preview}\n(${hint})${suffix}`, 0, 0);
   }

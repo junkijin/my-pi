@@ -6,7 +6,7 @@
  * - OSC 777: Ghostty, iTerm2, WezTerm, rxvt-unicode
  * - OSC 99: Kitty
  * - Windows toast: Windows Terminal (WSL)
- * - tmux passthrough: wraps OSC sequences when running inside tmux
+ * - tmux passthrough: wraps OSC sequences for outer terminal delivery when running inside tmux
  *
  * tmux passthrough requires `allow-passthrough` to be enabled in tmux.
  */
@@ -26,16 +26,6 @@ function sanitizeOSCText(value: string): string {
 		.replaceAll("\n", " ");
 }
 
-function writeEscapeSequence(sequence: string): void {
-	if (process.env.TMUX) {
-		const escapedSequence = sequence.replaceAll(ESC, `${ESC}${ESC}`);
-		process.stdout.write(`${ESC}Ptmux;${escapedSequence}${ST}`);
-		return;
-	}
-
-	process.stdout.write(sequence);
-}
-
 function windowsToastScript(title: string, body: string): string {
 	const escapePowerShell = (value: string) => value.replaceAll("'", "''");
 	const type = "Windows.UI.Notifications";
@@ -50,10 +40,26 @@ function windowsToastScript(title: string, body: string): string {
 	].join("; ");
 }
 
+function wrapForTmux(sequence: string): string {
+	if (!process.env.TMUX) {
+		return sequence;
+	}
+
+	return `${ESC}Ptmux;${sequence.replaceAll(ESC, `${ESC}${ESC}`)}${ST}`;
+}
+
+function writeTerminalSequence(sequence: string): void {
+	if (!process.stdout.isTTY) {
+		return;
+	}
+
+	process.stdout.write(wrapForTmux(sequence));
+}
+
 function notifyOSC777(title: string, body: string): void {
 	const safeTitle = sanitizeOSCText(title);
 	const safeBody = sanitizeOSCText(body);
-	writeEscapeSequence(`${ESC}]777;notify;${safeTitle};${safeBody}${BEL}`);
+	writeTerminalSequence(`${ESC}]777;notify;${safeTitle};${safeBody}${BEL}`);
 }
 
 function notifyOSC99(title: string, body: string): void {
@@ -61,8 +67,8 @@ function notifyOSC99(title: string, body: string): void {
 	const safeBody = sanitizeOSCText(body);
 
 	// Kitty OSC 99: i=notification id, d=0 means not done yet, p=body for second part
-	writeEscapeSequence(`${ESC}]99;i=1:d=0;${safeTitle}${ST}`);
-	writeEscapeSequence(`${ESC}]99;i=1:p=body;${safeBody}${ST}`);
+	writeTerminalSequence(`${ESC}]99;i=1:d=0;${safeTitle}${ST}`);
+	writeTerminalSequence(`${ESC}]99;i=1:p=body;${safeBody}${ST}`);
 }
 
 function notifyWindows(title: string, body: string): void {

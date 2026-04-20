@@ -3,3 +3,4 @@ sessions/
 .pi/
 auth.json
 settings.json
+bin/

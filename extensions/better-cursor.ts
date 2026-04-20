@@ -46,13 +46,21 @@ class FocusCursorEditor extends CustomEditor {
 
 export default function (pi: ExtensionAPI) {
   let savedTui: TUI | undefined;
+  let changedHardwareCursor = false;
   let unsubscribeInput: (() => void) | undefined;
 
   pi.on("session_start", (_event, ctx) => {
     ctx.ui.setEditorComponent((tui: TUI, theme: Theme, keybindings: Keybindings) => {
       savedTui = tui;
-      // Switch the TUI from software-only to hardware cursor mode.
-      tui.setShowHardwareCursor(true);
+      // This extension relies on a hardware cursor for the normal editing path.
+      // Only flip the flag if we changed it ourselves, so we minimize interference
+      // with user settings or other extensions.
+      if (!tui.getShowHardwareCursor()) {
+        tui.setShowHardwareCursor(true);
+        changedHardwareCursor = true;
+      } else {
+        changedHardwareCursor = false;
+      }
       // Ask the terminal to report OS window focus changes.
       tui.terminal.write(ENABLE_FOCUS_REPORT);
       return new FocusCursorEditor(tui, theme, keybindings);
@@ -92,11 +100,14 @@ export default function (pi: ExtensionAPI) {
     });
   });
 
-  pi.on("session_end", () => {
-    // Restore default cursor mode and stop focus reporting on session exit.
+  pi.on("session_shutdown", () => {
+    // Restore default cursor mode and stop focus reporting before pi exits or reloads.
     savedTui?.terminal.write(DISABLE_FOCUS_REPORT);
-    savedTui?.setShowHardwareCursor(false);
+    if (changedHardwareCursor) {
+      savedTui?.setShowHardwareCursor(false);
+    }
     savedTui = undefined;
+    changedHardwareCursor = false;
     unsubscribeInput?.();
     unsubscribeInput = undefined;
     focusState.osWindowFocused = true;

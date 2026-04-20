@@ -1,7 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import { basename } from "node:path";
-import { execSync } from "node:child_process";
 
 function getLeftContext(usage) {
 	const remaining = Math.max(0, 100 - (usage?.percent || 0));
@@ -30,20 +29,30 @@ function formatCost(cost: number): string {
 	return `$${cost.toFixed(2)}`;
 }
 
+function sanitizeStatusText(text: string): string {
+	return text
+		.replace(/[\r\n\t]/g, " ")
+		.replace(/ +/g, " ")
+		.trim();
+}
+
+function getExtensionStatuses(footerData): string[] {
+	return Array.from(footerData.getExtensionStatuses().entries())
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([, text]) => sanitizeStatusText(text))
+		.filter(Boolean);
+}
+
+function formatStatusLine(theme, statuses: string[]): string {
+	return statuses.join(theme.fg("dim", " · "));
+}
+
 function getModelInfo(ctx) {
 	const model = ctx.model;
 	if (!model) {
 		return "model not selected";
 	}
 	return `${model.provider}/${model.id}`;
-}
-
-function getGitBranch(cwd: string): string | undefined {
-	try {
-		return execSync("git rev-parse --abbrev-ref HEAD", { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
-	} catch {
-		return undefined;
-	}
 }
 
 export default function (pi: ExtensionAPI) {
@@ -65,7 +74,7 @@ export default function (pi: ExtensionAPI) {
 					const innerWidth = width;
 
 					const dirName = basename(ctx.cwd);
-					const branch = getGitBranch(ctx.cwd);
+					const branch = footerData.getGitBranch();
 					const dirLabel = theme.fg("dim", branch ? `${dirName} (${branch})` : dirName);
 
 					const tokensText = isSub
@@ -73,18 +82,22 @@ export default function (pi: ExtensionAPI) {
 						: `${formatTokensK(usage?.tokens)} (${formatCost(cost)})`;
 					const tokensLabel = theme.fg("dim", tokensText);
 					const leftPart = dirLabel + theme.fg("dim", " · ") + tokensLabel;
-					const status = theme.fg("dim", `${modelName} (${thinkingLevel})`);
-					const gap = " ".repeat(Math.max(1, innerWidth - visibleWidth(leftPart) - visibleWidth(status)));
+					const modelStatus = theme.fg("dim", `${modelName} (${thinkingLevel})`);
+					const gap = " ".repeat(Math.max(1, innerWidth - visibleWidth(leftPart) - visibleWidth(modelStatus)));
+					const lines = [truncateToWidth(leftPart + gap + modelStatus, width)];
+
+					const extensionStatuses = getExtensionStatuses(footerData);
+					if (extensionStatuses.length > 0) {
+						lines.push(truncateToWidth(formatStatusLine(theme, extensionStatuses), width, theme.fg("dim", "...")));
+					}
 
 					if (leftContextPercent < 30) {
 						const leftContext = theme.fg("accent", `${leftContextPercent}% context left`);
 						const leftContextPad = " ".repeat(Math.max(1, innerWidth - visibleWidth(leftContext)));
-						return [
-							truncateToWidth(leftPart + gap + status, width),
-							truncateToWidth(leftContextPad + leftContext, width),
-						];
+						lines.push(truncateToWidth(leftContextPad + leftContext, width));
 					}
-					return [truncateToWidth(leftPart + gap + status, width)];
+
+					return lines;
 				},
 			};
 		});

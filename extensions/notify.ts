@@ -6,11 +6,38 @@
  * - OSC 777: Ghostty, iTerm2, WezTerm, rxvt-unicode
  * - OSC 99: Kitty
  * - Windows toast: Windows Terminal (WSL)
+ * - tmux passthrough: wraps OSC sequences when running inside tmux
+ *
+ * tmux passthrough requires `allow-passthrough` to be enabled in tmux.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
+const ESC = "\x1b";
+const BEL = "\x07";
+const ST = `${ESC}\\`;
+
+function sanitizeOSCText(value: string): string {
+	return value
+		.replaceAll(ESC, "")
+		.replaceAll(BEL, "")
+		.replaceAll("\u009c", "")
+		.replaceAll("\r", " ")
+		.replaceAll("\n", " ");
+}
+
+function writeEscapeSequence(sequence: string): void {
+	if (process.env.TMUX) {
+		const escapedSequence = sequence.replaceAll(ESC, `${ESC}${ESC}`);
+		process.stdout.write(`${ESC}Ptmux;${escapedSequence}${ST}`);
+		return;
+	}
+
+	process.stdout.write(sequence);
+}
+
 function windowsToastScript(title: string, body: string): string {
+	const escapePowerShell = (value: string) => value.replaceAll("'", "''");
 	const type = "Windows.UI.Notifications";
 	const mgr = `[${type}.ToastNotificationManager, ${type}, ContentType = WindowsRuntime]`;
 	const template = `[${type}.ToastTemplateType]::ToastText01`;
@@ -18,19 +45,24 @@ function windowsToastScript(title: string, body: string): string {
 	return [
 		`${mgr} > $null`,
 		`$xml = [${type}.ToastNotificationManager]::GetTemplateContent(${template})`,
-		`$xml.GetElementsByTagName('text')[0].AppendChild($xml.CreateTextNode('${body}')) > $null`,
-		`[${type}.ToastNotificationManager]::CreateToastNotifier('${title}').Show(${toast})`,
+		`$xml.GetElementsByTagName('text')[0].AppendChild($xml.CreateTextNode('${escapePowerShell(body)}')) > $null`,
+		`[${type}.ToastNotificationManager]::CreateToastNotifier('${escapePowerShell(title)}').Show(${toast})`,
 	].join("; ");
 }
 
 function notifyOSC777(title: string, body: string): void {
-	process.stdout.write(`\x1b]777;notify;${title};${body}\x07`);
+	const safeTitle = sanitizeOSCText(title);
+	const safeBody = sanitizeOSCText(body);
+	writeEscapeSequence(`${ESC}]777;notify;${safeTitle};${safeBody}${BEL}`);
 }
 
 function notifyOSC99(title: string, body: string): void {
+	const safeTitle = sanitizeOSCText(title);
+	const safeBody = sanitizeOSCText(body);
+
 	// Kitty OSC 99: i=notification id, d=0 means not done yet, p=body for second part
-	process.stdout.write(`\x1b]99;i=1:d=0;${title}\x1b\\`);
-	process.stdout.write(`\x1b]99;i=1:p=body;${body}\x1b\\`);
+	writeEscapeSequence(`${ESC}]99;i=1:d=0;${safeTitle}${ST}`);
+	writeEscapeSequence(`${ESC}]99;i=1:p=body;${safeBody}${ST}`);
 }
 
 function notifyWindows(title: string, body: string): void {

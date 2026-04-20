@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { CURSOR_MARKER, Editor, Input, SettingsList, isFocusable } from "@mariozechner/pi-tui";
+import { CURSOR_MARKER, Editor, Input, SettingsList, TUI, isFocusable } from "@mariozechner/pi-tui";
 
 type FocusableRenderTarget = {
 	focused?: boolean;
@@ -9,19 +9,31 @@ type RenderFn<T> = (this: T, width: number) => string[];
 
 type SettingsListLike = SettingsList & {
 	__junkijinPiSettingsListFocused?: boolean;
+	focused?: boolean;
 	searchInput?: Input;
 	submenuComponent?: unknown;
+	render: RenderFn<SettingsListLike>;
 	activateItem: (...args: unknown[]) => unknown;
 	closeSubmenu: (...args: unknown[]) => unknown;
 };
 
+type TUILike = TUI & {
+	doRender: (...args: unknown[]) => unknown;
+	getShowHardwareCursor: () => boolean;
+	setShowHardwareCursor: (enabled: boolean) => void;
+};
+
 type CursorPatchState = {
 	refCount: number;
+	hardwareCursorEnabled: boolean;
 	originalEditorRender: RenderFn<Editor>;
 	originalInputRender: RenderFn<Input>;
+	originalSettingsListRender: RenderFn<SettingsListLike>;
 	originalSettingsListFocusedDescriptor?: PropertyDescriptor;
 	originalSettingsListActivateItem: SettingsListLike["activateItem"];
 	originalSettingsListCloseSubmenu: SettingsListLike["closeSubmenu"];
+	originalTuiDoRender: TUILike["doRender"];
+	originalTuiSetShowHardwareCursor: TUILike["setShowHardwareCursor"];
 };
 
 const PATCH_STATE_KEY = "__junkijin_pi_no_software_cursor_patch__";
@@ -31,6 +43,17 @@ const SOFTWARE_CURSOR_BLOCK = /\x1b\[7m([^\x1b]*)\x1b\[(?:0|27)m/g;
 
 function getPatchStateStore(): typeof globalThis & { [PATCH_STATE_KEY]?: CursorPatchState } {
 	return globalThis as typeof globalThis & { [PATCH_STATE_KEY]?: CursorPatchState };
+}
+
+function isHardwareCursorEnabled(): boolean {
+	return Boolean(getPatchStateStore()[PATCH_STATE_KEY]?.hardwareCursorEnabled);
+}
+
+function setHardwareCursorEnabled(enabled: boolean): void {
+	const patchState = getPatchStateStore()[PATCH_STATE_KEY];
+	if (patchState) {
+		patchState.hardwareCursorEnabled = enabled;
+	}
 }
 
 function stripSoftwareCursor(lines: string[], focused: boolean): string[] {
@@ -52,20 +75,47 @@ function stripSoftwareCursor(lines: string[], focused: boolean): string[] {
 function wrapRender<T extends FocusableRenderTarget>(originalRender: RenderFn<T>): RenderFn<T> {
 	return function wrappedRender(this: T, width: number): string[] {
 		const lines = originalRender.call(this, width);
+		if (!isHardwareCursorEnabled()) {
+			return lines;
+		}
 		return stripSoftwareCursor(lines, Boolean(this.focused));
 	};
 }
 
 function syncSettingsListFocus(instance: SettingsListLike): void {
-	const focused = Boolean(instance[SETTINGS_LIST_FOCUSED_KEY]);
+	const listFocused = Boolean(instance[SETTINGS_LIST_FOCUSED_KEY]);
+	const childFocused = isHardwareCursorEnabled() && listFocused;
 	const searchInput = instance.searchInput;
 	if (searchInput) {
-		searchInput.focused = focused && !instance.submenuComponent;
+		searchInput.focused = childFocused && !instance.submenuComponent;
 	}
 
 	if (isFocusable(instance.submenuComponent as FocusableRenderTarget | null)) {
-		instance.submenuComponent.focused = focused;
+		instance.submenuComponent.focused = childFocused;
 	}
+}
+
+function wrapSettingsListRender(originalRender: RenderFn<SettingsListLike>): RenderFn<SettingsListLike> {
+	return function wrappedSettingsListRender(this: SettingsListLike, width: number): string[] {
+		syncSettingsListFocus(this);
+		return originalRender.call(this, width);
+	};
+}
+
+function wrapTuiDoRender(originalDoRender: TUILike["doRender"]): TUILike["doRender"] {
+	return function wrappedDoRender(this: TUILike, ...args: unknown[]): unknown {
+		setHardwareCursorEnabled(this.getShowHardwareCursor());
+		return originalDoRender.apply(this, args);
+	};
+}
+
+function wrapTuiSetShowHardwareCursor(
+	originalSetShowHardwareCursor: TUILike["setShowHardwareCursor"],
+): TUILike["setShowHardwareCursor"] {
+	return function wrappedSetShowHardwareCursor(this: TUILike, enabled: boolean): void {
+		setHardwareCursorEnabled(enabled);
+		originalSetShowHardwareCursor.call(this, enabled);
+	};
 }
 
 function acquirePatch(): void {
@@ -77,13 +127,18 @@ function acquirePatch(): void {
 	}
 
 	const settingsListProto = SettingsList.prototype as SettingsListLike;
+	const tuiProto = TUI.prototype as unknown as TUILike;
 	const patchState: CursorPatchState = {
 		refCount: 1,
+		hardwareCursorEnabled: process.env.PI_HARDWARE_CURSOR === "1",
 		originalEditorRender: Editor.prototype.render,
 		originalInputRender: Input.prototype.render,
+		originalSettingsListRender: settingsListProto.render,
 		originalSettingsListFocusedDescriptor: Object.getOwnPropertyDescriptor(settingsListProto, "focused"),
 		originalSettingsListActivateItem: settingsListProto.activateItem,
 		originalSettingsListCloseSubmenu: settingsListProto.closeSubmenu,
+		originalTuiDoRender: tuiProto.doRender,
+		originalTuiSetShowHardwareCursor: tuiProto.setShowHardwareCursor,
 	};
 
 	Editor.prototype.render = wrapRender(patchState.originalEditorRender);
@@ -98,6 +153,7 @@ function acquirePatch(): void {
 			syncSettingsListFocus(this);
 		},
 	});
+	settingsListProto.render = wrapSettingsListRender(patchState.originalSettingsListRender);
 	settingsListProto.activateItem = function patchedActivateItem(this: SettingsListLike, ...args: unknown[]) {
 		const result = patchState.originalSettingsListActivateItem.apply(this, args);
 		syncSettingsListFocus(this);
@@ -108,6 +164,8 @@ function acquirePatch(): void {
 		syncSettingsListFocus(this);
 		return result;
 	};
+	tuiProto.doRender = wrapTuiDoRender(patchState.originalTuiDoRender);
+	tuiProto.setShowHardwareCursor = wrapTuiSetShowHardwareCursor(patchState.originalTuiSetShowHardwareCursor);
 	store[PATCH_STATE_KEY] = patchState;
 }
 
@@ -124,10 +182,14 @@ function releasePatch(): void {
 	}
 
 	const settingsListProto = SettingsList.prototype as SettingsListLike;
+	const tuiProto = TUI.prototype as unknown as TUILike;
 	Editor.prototype.render = patchState.originalEditorRender;
 	Input.prototype.render = patchState.originalInputRender;
+	settingsListProto.render = patchState.originalSettingsListRender;
 	settingsListProto.activateItem = patchState.originalSettingsListActivateItem;
 	settingsListProto.closeSubmenu = patchState.originalSettingsListCloseSubmenu;
+	tuiProto.doRender = patchState.originalTuiDoRender;
+	tuiProto.setShowHardwareCursor = patchState.originalTuiSetShowHardwareCursor;
 	if (patchState.originalSettingsListFocusedDescriptor) {
 		Object.defineProperty(settingsListProto, "focused", patchState.originalSettingsListFocusedDescriptor);
 	} else {

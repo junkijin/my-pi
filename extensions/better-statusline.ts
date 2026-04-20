@@ -10,18 +10,30 @@ function getLeftContext(usage) {
 
 function formatTokensK(tokens: number | undefined): string {
 	if (!tokens) return "0k";
-	const k = tokens / 1000;
-	return k >= 10 ? `${Math.round(k)}k` : `${Math.round(k * 10) / 10}k`;
+	if (tokens < 1_000_000) {
+		const k = tokens / 1000;
+		return k >= 10 ? `${Math.round(k)}k` : `${Math.round(k * 10) / 10}k`;
+	}
+	const m = tokens / 1_000_000;
+	return m >= 10 ? `${Math.round(m)}M` : `${Math.round(m * 10) / 10}M`;
 }
 
-function getSessionCost(ctx): number {
-	let total = 0;
-	for (const entry of ctx.sessionManager.getBranch()) {
+function getSessionUsageTotals(ctx): { tokens: number; cost: number } {
+	let tokens = 0;
+	let cost = 0;
+
+	for (const entry of ctx.sessionManager.getEntries()) {
 		if (entry.type === "message" && entry.message.role === "assistant") {
-			total += entry.message.usage?.cost?.total ?? 0;
+			tokens +=
+				(entry.message.usage?.input ?? 0) +
+				(entry.message.usage?.output ?? 0) +
+				(entry.message.usage?.cacheRead ?? 0) +
+				(entry.message.usage?.cacheWrite ?? 0);
+			cost += entry.message.usage?.cost?.total ?? 0;
 		}
 	}
-	return total;
+
+	return { tokens, cost };
 }
 
 function formatCost(cost: number): string {
@@ -70,7 +82,7 @@ export default function (pi: ExtensionAPI) {
 					const modelName = getModelInfo(ctx);
 
 					const isSub = ctx.model ? ctx.modelRegistry.isUsingOAuth(ctx.model) : false;
-					const cost = getSessionCost(ctx);
+					const sessionTotals = getSessionUsageTotals(ctx);
 					const innerWidth = width;
 
 					const dirName = basename(ctx.cwd);
@@ -78,8 +90,8 @@ export default function (pi: ExtensionAPI) {
 					const dirLabel = theme.fg("dim", branch ? `${dirName} (${branch})` : dirName);
 
 					const tokensText = isSub
-						? formatTokensK(usage?.tokens)
-						: `${formatTokensK(usage?.tokens)} (${formatCost(cost)})`;
+						? formatTokensK(sessionTotals.tokens)
+						: `${formatTokensK(sessionTotals.tokens)} (${formatCost(sessionTotals.cost)})`;
 					const tokensLabel = theme.fg("dim", tokensText);
 					const leftPart = dirLabel + theme.fg("dim", " · ") + tokensLabel;
 					const modelStatus = theme.fg("dim", `${modelName} (${thinkingLevel})`);

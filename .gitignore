@@ -1,6 +1,6 @@
-node_modules/
+bin/
+extensions/**/node_modules/
 sessions/
-.pi/
+AGENTS.md
 auth.json
 settings.json
-bin/

@@ -1,9 +1,0 @@
-{
-  "name": "search_web",
-  "private": true,
-  "pi": {
-    "extensions": [
-      "./src/index.ts"
-    ]
-  }
-}

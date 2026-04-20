@@ -8,32 +8,16 @@ function getLeftContext(usage) {
 	return rounded;
 }
 
-function formatTokensK(tokens: number | undefined): string {
-	if (!tokens) return "0k";
-	if (tokens < 1_000_000) {
-		const k = tokens / 1000;
-		return k >= 10 ? `${Math.round(k)}k` : `${Math.round(k * 10) / 10}k`;
-	}
-	const m = tokens / 1_000_000;
-	return m >= 10 ? `${Math.round(m)}M` : `${Math.round(m * 10) / 10}M`;
-}
-
-function getSessionUsageTotals(ctx): { tokens: number; cost: number } {
-	let tokens = 0;
+function getSessionCostTotal(ctx): number {
 	let cost = 0;
 
 	for (const entry of ctx.sessionManager.getEntries()) {
 		if (entry.type === "message" && entry.message.role === "assistant") {
-			tokens +=
-				(entry.message.usage?.input ?? 0) +
-				(entry.message.usage?.output ?? 0) +
-				(entry.message.usage?.cacheRead ?? 0) +
-				(entry.message.usage?.cacheWrite ?? 0);
 			cost += entry.message.usage?.cost?.total ?? 0;
 		}
 	}
 
-	return { tokens, cost };
+	return cost;
 }
 
 function formatCost(cost: number): string {
@@ -82,18 +66,16 @@ export default function (pi: ExtensionAPI) {
 					const modelName = getModelInfo(ctx);
 
 					const isSub = ctx.model ? ctx.modelRegistry.isUsingOAuth(ctx.model) : false;
-					const sessionTotals = getSessionUsageTotals(ctx);
+					const sessionCost = getSessionCostTotal(ctx);
 					const innerWidth = width;
 
 					const dirName = basename(ctx.cwd);
 					const branch = footerData.getGitBranch();
 					const dirLabel = theme.fg("dim", branch ? `${dirName} (${branch})` : dirName);
-
-					const tokensText = isSub
-						? formatTokensK(sessionTotals.tokens)
-						: `${formatTokensK(sessionTotals.tokens)} (${formatCost(sessionTotals.cost)})`;
-					const tokensLabel = theme.fg("dim", tokensText);
-					const leftPart = dirLabel + theme.fg("dim", " · ") + tokensLabel;
+					const contextLeftText = `${leftContextPercent}%`;
+					const contextLeftLabel = theme.fg("dim", contextLeftText);
+					const pricePart = isSub ? "" : theme.fg("dim", " · ") + theme.fg("dim", formatCost(sessionCost));
+					const leftPart = dirLabel + theme.fg("dim", " · ") + contextLeftLabel + pricePart;
 					const modelStatus = theme.fg("dim", `${modelName} (${thinkingLevel})`);
 					const gap = " ".repeat(Math.max(1, innerWidth - visibleWidth(leftPart) - visibleWidth(modelStatus)));
 					const lines = [truncateToWidth(leftPart + gap + modelStatus, width)];
@@ -101,12 +83,6 @@ export default function (pi: ExtensionAPI) {
 					const extensionStatuses = getExtensionStatuses(footerData);
 					if (extensionStatuses.length > 0) {
 						lines.push(truncateToWidth(formatStatusLine(theme, extensionStatuses), width, theme.fg("dim", "...")));
-					}
-
-					if (leftContextPercent < 30) {
-						const leftContext = theme.fg("accent", `${leftContextPercent}% context left`);
-						const leftContextPad = " ".repeat(Math.max(1, innerWidth - visibleWidth(leftContext)));
-						lines.push(truncateToWidth(leftContextPad + leftContext, width));
 					}
 
 					return lines;

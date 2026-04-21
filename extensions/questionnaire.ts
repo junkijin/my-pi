@@ -105,6 +105,7 @@ export default function questionnaire(pi: ExtensionAPI) {
 				let optionIndex = 0;
 				let inputMode = false;
 				let inputQuestionId: string | null = null;
+				let componentFocused = false;
 				let cachedLines: string[] | undefined;
 				const answers = new Map<string, Answer>();
 
@@ -121,9 +122,14 @@ export default function questionnaire(pi: ExtensionAPI) {
 				};
 				const editor = new Editor(tui, editorTheme);
 
+				function syncEditorFocus() {
+					editor.focused = componentFocused && inputMode;
+					cachedLines = undefined;
+				}
+
 				// Helpers
 				function refresh() {
-					cachedLines = undefined;
+					syncEditorFocus();
 					tui.requestRender();
 				}
 
@@ -369,6 +375,13 @@ export default function questionnaire(pi: ExtensionAPI) {
 						cachedLines = undefined;
 					},
 					handleInput,
+					get focused() {
+						return componentFocused;
+					},
+					set focused(value: boolean) {
+						componentFocused = value;
+						syncEditorFocus();
+					},
 				};
 			});
 

@@ -1,6 +1,9 @@
 bin/
 extensions/**/node_modules/
+mcp-oauth/
 sessions/
 AGENTS.md
 auth.json
+mcp-cache.json
+mcp.json
 settings.json

@@ -11,11 +11,20 @@
  * tmux passthrough requires `allow-passthrough` to be enabled in tmux.
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { getAgentDir, SettingsManager, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { isContextOverflow, type AssistantMessage } from "@mariozechner/pi-ai";
 
 const ESC = "\x1b";
 const BEL = "\x07";
 const ST = `${ESC}\\`;
+
+const DEFAULT_RETRY_SETTINGS = {
+	enabled: true,
+	maxRetries: 3,
+};
+
+const RETRYABLE_ERROR_PATTERN =
+	/overloaded|provider.?returned.?error|rate.?limit|too many requests|429|500|502|503|504|service.?unavailable|server.?error|internal.?error|network.?error|connection.?error|connection.?refused|connection.?lost|other side closed|fetch failed|upstream.?connect|reset before headers|socket hang up|ended without|http2 request did not get a response|timed? out|timeout|terminated|retry delay/i;
 
 function sanitizeOSCText(value: string): string {
 	return value
@@ -86,8 +95,95 @@ function notify(title: string, body: string): void {
 	}
 }
 
+function getRetrySettings(cwd: string): typeof DEFAULT_RETRY_SETTINGS {
+	try {
+		const settings = SettingsManager.create(cwd, getAgentDir()).getRetrySettings();
+		return {
+			enabled: settings.enabled,
+			maxRetries: settings.maxRetries,
+		};
+	} catch {
+		return DEFAULT_RETRY_SETTINGS;
+	}
+}
+
+function findLastAssistantMessage(messages: unknown[]): AssistantMessage | undefined {
+	for (let index = messages.length - 1; index >= 0; index--) {
+		const message = messages[index];
+		if (message && typeof message === "object" && "role" in message && message.role === "assistant") {
+			return message as AssistantMessage;
+		}
+	}
+
+	return undefined;
+}
+
+function isRetryableError(message: AssistantMessage, contextWindow: number | undefined): boolean {
+	if (message.stopReason !== "error" || !message.errorMessage) {
+		return false;
+	}
+
+	if (isContextOverflow(message, contextWindow)) {
+		return false;
+	}
+
+	return RETRYABLE_ERROR_PATTERN.test(message.errorMessage);
+}
+
 export default function (pi: ExtensionAPI) {
-	pi.on("agent_end", async () => {
+	let retryableErrorCount = 0;
+
+	const resetRetryState = () => {
+		retryableErrorCount = 0;
+	};
+
+	const notifyAgentDone = () => {
 		notify("Pi", "I'm waiting for your response!");
+	};
+
+	pi.on("session_start", resetRetryState);
+	pi.on("session_shutdown", resetRetryState);
+
+	pi.on("message_start", (event) => {
+		if (event.message.role === "user") {
+			resetRetryState();
+		}
+	});
+
+	pi.on("message_end", (event) => {
+		if (event.message.role === "assistant" && event.message.stopReason !== "error") {
+			resetRetryState();
+		}
+	});
+
+	pi.on("agent_end", async (event, ctx) => {
+		const lastAssistant = findLastAssistantMessage(event.messages);
+		if (!lastAssistant) {
+			return;
+		}
+
+		if (lastAssistant.stopReason === "aborted") {
+			resetRetryState();
+			return;
+		}
+
+		if (lastAssistant.stopReason === "error") {
+			const retrySettings = getRetrySettings(ctx.cwd);
+			const contextWindow = ctx.model?.contextWindow;
+			if (retrySettings.enabled && isRetryableError(lastAssistant, contextWindow)) {
+				retryableErrorCount++;
+
+				if (retryableErrorCount <= retrySettings.maxRetries) {
+					return;
+				}
+			}
+
+			resetRetryState();
+			notifyAgentDone();
+			return;
+		}
+
+		resetRetryState();
+		notifyAgentDone();
 	});
 }

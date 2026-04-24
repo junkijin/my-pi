@@ -2,6 +2,7 @@ bin/
 extensions/**/node_modules/
 mcp-oauth/
 sessions/
+sub-agent-threads/
 AGENTS.md
 auth.json
 mcp-cache.json

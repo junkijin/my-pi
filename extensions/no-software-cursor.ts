@@ -1,13 +1,18 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { CURSOR_MARKER, SettingsList, TUI, isFocusable, type Component, type Focusable } from "@mariozechner/pi-tui";
+import { CURSOR_MARKER, Editor, SettingsList, TUI, isFocusable, type Component, type Focusable } from "@mariozechner/pi-tui";
 
 const PATCH_STATE_KEY = "__junkijin_pi_no_software_cursor_patch__";
 const REVERSE_SGR = "\x1b\\[(?:\\d+;)*0*7(?:;\\d+)*m";
+const SOFTWARE_CURSOR_START = "\x1b[7m";
 const MARKER = escapeRegExp(CURSOR_MARKER);
 const MARKED_SOFTWARE_CURSOR = new RegExp(`(${MARKER})(${REVERSE_SGR})|(${REVERSE_SGR})(${MARKER})`, "g");
 
 type RenderFn<T> = (this: T, width: number, ...args: unknown[]) => string[];
 type CursorPosition = { row: number; col: number } | null;
+
+type EditorLike = Editor & {
+	render: RenderFn<EditorLike>;
+};
 
 type SettingsListLike = SettingsList & {
 	searchInput?: Component | null;
@@ -54,6 +59,30 @@ function stripMarkedSoftwareCursor(lines: string[]): void {
 			return markerBefore ? `${CURSOR_MARKER}${stripReverseVideo(sgrAfter)}` : `${stripReverseVideo(sgrBefore)}${CURSOR_MARKER}`;
 		});
 	}
+}
+
+function insertMarkerBeforeSoftwareCursor(lines: string[]): void {
+	if (lines.some((line) => line.includes(CURSOR_MARKER))) return;
+
+	for (let index = 0; index < lines.length; index += 1) {
+		const cursorStartIndex = lines[index].indexOf(SOFTWARE_CURSOR_START);
+		if (cursorStartIndex === -1) continue;
+		lines[index] = `${lines[index].slice(0, cursorStartIndex)}${CURSOR_MARKER}${lines[index].slice(cursorStartIndex)}`;
+		return;
+	}
+}
+
+function wrapEditorRender(render: RenderFn<EditorLike>): RenderFn<EditorLike> {
+	return function wrappedEditorRender(this: EditorLike, width: number, ...args: unknown[]): string[] {
+		const lines = render.call(this, width, ...args);
+
+		// pi-tui intentionally suppresses CURSOR_MARKER while autocomplete is visible because
+		// the software cursor still shows the edit position. This extension removes that
+		// software cursor, so re-add the marker before stripping reverse-video in TUI render.
+		if (this.focused && this.isShowingAutocomplete()) insertMarkerBeforeSoftwareCursor(lines);
+
+		return lines;
+	};
 }
 
 function withFocusedChild<T>(settingsList: SettingsListLike, render: () => T): T {
@@ -118,11 +147,14 @@ function acquirePatch(): void {
 		return;
 	}
 
+	const editorProto = Editor.prototype as EditorLike;
 	const settingsListProto = SettingsList.prototype as SettingsListLike;
 	const tuiProto = TUI.prototype as unknown as TUILike;
+	const originalEditorRender = editorProto.render;
 	const originalSettingsListRender = settingsListProto.render;
 	const originalExtractCursorPosition = tuiProto.extractCursorPosition;
 	const originalTuiSetFocus = tuiProto.setFocus;
+	const editorRender = wrapEditorRender(originalEditorRender);
 	const settingsListRender = wrapSettingsListRender(originalSettingsListRender);
 	const extractCursorPosition = wrapCursorExtraction(originalExtractCursorPosition);
 	const tuiSetFocus = wrapTuiSetFocus(originalTuiSetFocus);
@@ -132,12 +164,14 @@ function acquirePatch(): void {
 		focusedSettingsLists: new WeakSet(),
 		focusedSettingsListByTui: new WeakMap(),
 		restore() {
+			if (editorProto.render === editorRender) editorProto.render = originalEditorRender;
 			if (settingsListProto.render === settingsListRender) settingsListProto.render = originalSettingsListRender;
 			if (tuiProto.extractCursorPosition === extractCursorPosition) tuiProto.extractCursorPosition = originalExtractCursorPosition;
 			if (tuiProto.setFocus === tuiSetFocus) tuiProto.setFocus = originalTuiSetFocus;
 		},
 	};
 
+	editorProto.render = editorRender;
 	settingsListProto.render = settingsListRender;
 	tuiProto.extractCursorPosition = extractCursorPosition;
 	tuiProto.setFocus = tuiSetFocus;

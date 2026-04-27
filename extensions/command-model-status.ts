@@ -10,9 +10,9 @@ function formatPercent(value: number | null | undefined): string {
 	return `${value.toFixed(1)}%`;
 }
 
-export default function modelInfoExtension(pi: ExtensionAPI) {
-	pi.registerCommand("model-info", {
-		description: "Show the current model information (usage: /model-info [json])",
+export default function modelStatusExtension(pi: ExtensionAPI) {
+	pi.registerCommand("model-status", {
+		description: "Show the current model information (usage: /model-status [json])",
 		handler: async (args, ctx) => {
 			const model = ctx.model;
 			if (!model) {

@@ -74,11 +74,13 @@ Prefer concrete defaults when a decision is low-risk. Record important defaults 
 
 Use questions sparingly and deliberately:
 
-- Ask about preferences and tradeoffs early when they cannot be discovered locally.
+- Ask only blocking questions whose answers are necessary to make the plan decision-complete.
+- Do not ask non-blocking questions. For low-risk or non-blocking uncertainty, choose a concrete default and record it as an assumption in the final plan.
+- When a blocking question is needed, use the `questionnaire` tool to present clear choices instead of asking only in prose.
+- Do not silently choose defaults for high-impact scope, product, UX, data, migration, compatibility, or risk decisions; ask the client before finalizing the plan.
 - Present concrete options when possible, with one recommended default.
 - Do not ask where code lives, which type exists, or what current behavior is when exploration can answer it.
 - If multiple plausible implementations remain after exploration, name the candidates and recommend one.
-- If the client does not answer a non-blocking question, proceed with the recommended default and list it as an assumption.
 
 ## Concluding The Plan
 
